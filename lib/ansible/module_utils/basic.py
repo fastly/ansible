@@ -1965,9 +1965,16 @@ class AnsibleModule(object):
             # based on the current value of umask
             umask = os.umask(0)
             os.umask(umask)
-            os.chmod(dest, DEFAULT_PERM & ~umask)
-            if switched_user:
-                os.chown(dest, os.getuid(), os.getgid())
+            try:
+                os.chmod(dest, DEFAULT_PERM & ~umask)
+                if switched_user:
+                    os.chown(dest, os.getuid(), os.getgid())
+            except OSError:
+                # Some filesystems like vfat will fail with EPERM if
+                # you try to chmod or chown a file.
+                e = get_exception()
+                if e.errno != errno.EPERM:
+                    raise
 
         if self.selinux_enabled():
             # rename might not preserve context
